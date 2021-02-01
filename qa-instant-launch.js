@@ -4,11 +4,8 @@ const APP_EXPOSER_URL = Deno.env.get("APP_EXPOSER_URL") || "http://app-exposer";
 const APPS_URL = Deno.env.get("APPS_URL") || "http://apps";
 const ANALYSES_URL = Deno.env.get("ANALYSES_URL") || "http://analyses";
 const USERNAME = Deno.env.get("USERNAME");
-
-if (USERNAME === "" || !USERNAME) {
-  console.log("USERNAME env var must be set.");
-  return;
-}
+const USERNAME_SUFFIX =
+  Deno.env.get("USERNAME_SUFFIX") || "@iplantcollaborative.org";
 
 const quickLaunch = {
   name: "instant-launch-test",
@@ -29,8 +26,18 @@ const quickLaunch = {
   },
 };
 
+const fixedUser = (username) => {
+  if (username.endsWith(USERNAME_SUFFIX)) {
+    return username;
+  }
+  return `${username}${USERNAME_SUFFIX}`;
+};
+
 const addQuickLaunch = async (quicklaunch) => {
-  const addQuickLaunch = new URL(`/quicklaunches`, ANALYSES_URL);
+  const addQuickLaunch = new URL(
+    `/quicklaunches?user=${fixedUser(USERNAME)}`,
+    ANALYSES_URL
+  );
 
   const qlData = await fetch(addQuickLaunch, {
     method: "POST",
@@ -38,14 +45,14 @@ const addQuickLaunch = async (quicklaunch) => {
     headers: {
       "Content-Type": "application/json",
     },
-  });
+  }).then((resp) => resp.json());
 
-  return { ...quicklaunch, id: qlData.quick_launch_id };
+  return { ...quicklaunch, id: qlData.id };
 };
 
 const setQLGlobalDefault = async (quicklaunch) => {
   const addGlobalDefaultURL = new URL(
-    `/quicklaunch/defaults/global`,
+    `/quicklaunch/defaults/global?user=${fixedUser(USERNAME)}`,
     ANALYSES_URL
   );
 
@@ -64,11 +71,11 @@ const setQLGlobalDefault = async (quicklaunch) => {
 };
 
 const addInstantLaunch = async (quicklaunch) => {
-  const addInstantLaunch = new URL(`/instantlaunches`, APP_EXPOSER_URL);
+  const addInstantLaunch = new URL(`/instantlaunches/`, APP_EXPOSER_URL);
 
   const bodyObj = {
     quick_launch_id: quicklaunch.id,
-    added_by: USERNAME,
+    added_by: fixedUser(USERNAME),
   };
 
   return await fetch(addInstantLaunch, {
@@ -77,12 +84,12 @@ const addInstantLaunch = async (quicklaunch) => {
     headers: {
       "Content-Type": "application/json",
     },
-  });
+  }).then((resp) => resp.json());
 };
 
 const setInstantLaunchMapping = async (instantlaunch) => {
   const newILMappingURL = new URL(
-    `/instantlaunches/mappings/defaults/latest`,
+    `/instantlaunches/mappings/defaults/latest?username=${fixedUser(USERNAME)}`,
     APP_EXPOSER_URL
   );
 
@@ -101,19 +108,29 @@ const setInstantLaunchMapping = async (instantlaunch) => {
     headers: {
       "Content-Type": "application/json",
     },
-  });
+  }).then((resp) => resp.json());
 };
 
-const ql = await addQuickLaunch(quicklaunch);
-console.log(`added quick launch id: ${ql.id}`);
+const main = async () => {
+  try {
+    const ql = await addQuickLaunch(quickLaunch);
+    console.log(`added quick launch id: ${ql.id}`);
 
-const globalDefault = await setQLGlobalDefault(ql);
-console.log(`global default id: ${globalDefault.id}`);
+    // const globalDefault = await setQLGlobalDefault(ql);
+    // console.log(`global default id: ${globalDefault.id}`);
 
-const instantLaunch = await addInstantLaunch(ql);
-console.log(`instant launch id: ${instantLaunch.id}`);
+    const instantLaunch = await addInstantLaunch(ql);
+    console.log(`instant launch id: ${instantLaunch.id}`);
 
-const ilMapping = await setInstantLaunchMapping(instantlaunch);
-console.log(
-  `instant launch mapping id: ${ilMapping.id}  version: ${ilMapping.version}`
-);
+    const ilMapping = await setInstantLaunchMapping(instantLaunch);
+    console.log(JSON.stringify(ilMapping, null, 2));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+if (USERNAME === "" || !USERNAME) {
+  console.log("USERNAME env var must be set.");
+} else {
+  main();
+}
