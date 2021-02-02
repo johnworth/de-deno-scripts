@@ -5,6 +5,13 @@ import * as posix from "https://deno.land/std@0.83.0/path/posix.ts";
 const SERVICE_URL = Deno.env.get("AE_BASE_URL") || "http://app-exposer";
 const APPS_BASE_URL = Deno.env.get("APPS_BASE_URL") || "http://apps";
 const LIST_RUNNING_URL = new URL("/vice/listing", SERVICE_URL).toString();
+const SAVE_AND_EXIT = Deno.env.get("SAVE_AND_EXIT") || null;
+
+if (SAVE_AND_EXIT) {
+  console.log("Will terminate zombie jobs.");
+} else {
+  console.log("Will not terminate zombie jobs.");
+}
 
 // Gets the full listing of analyses running in the cluster.
 const getListing = () => fetch(LIST_RUNNING_URL).then((resp) => resp.json());
@@ -106,10 +113,16 @@ altered.forEach(async (element) => {
     (element.status === "Completed" || element.status === "Canceled")
   ) {
     counter = counter + 1;
-    //const exitResp = await saveAndExit(element.analysisID);
-    console.log(
-      `${element.username} ${element.analysisID}  ${element.endDate}  ${element.status}`
-    );
+    if (SAVE_AND_EXIT) {
+      const exitResp = await saveAndExit(element.analysisID);
+      console.log(
+        `${element.username} ${element.analysisID}  ${element.endDate}  ${element.status}  ${exitResp.status} ${exitResp.statusText}`
+      );
+    } else {
+      console.log(
+        `${element.username} ${element.analysisID}  ${element.endDate}  ${element.status}`
+      );
+    }
   }
 });
 
