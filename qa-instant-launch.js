@@ -148,6 +148,34 @@ const setInstantLaunchMapping = async (instantlaunch) => {
   }).then((resp) => resp.json());
 };
 
+const setDashboardMetadata = async (instantlaunch) => {
+  const metadataURL = new URL(
+    `/terrain/admin/instant-launches/${instantlaunch.id}/metadata`,
+    TERRAIN_URL
+  );
+
+  const bodyObj = {
+    avus: [
+      {
+        attr: "ui_location",
+        value: "dashboard",
+        unit: "",
+      },
+    ],
+  };
+
+  const authMap = await bearer();
+
+  return await fetch(metadataURL, {
+    method: "POST",
+    body: JSON.stringify(bodyObj),
+    headers: {
+      ...authMap,
+      "Content-Type": "application/json",
+    },
+  }).then((resp) => resp.json());
+};
+
 const main = async () => {
   try {
     await getToken();
@@ -163,6 +191,9 @@ const main = async () => {
 
     const ilMapping = await setInstantLaunchMapping(instantLaunch);
     console.log(JSON.stringify(ilMapping, null, 2));
+
+    const metadata = await setDashboardMetadata(instantLaunch);
+    console.log(JSON.stringify(metadata, null, 2));
   } catch (e) {
     console.error(e);
   }
